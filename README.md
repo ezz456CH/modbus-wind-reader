@@ -1,6 +1,6 @@
 # Modbus Wind Reader
 
-uh... just a simple node.js project to read windspeed from a modbus-rs485 anemometer
+uh... just a simple node.js project to read windspeed from a modbus-rs485 anemometer using the modbus-serial package
 
 ## Dependencies
 
