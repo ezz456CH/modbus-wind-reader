@@ -43,15 +43,16 @@ async function winddatacache(data) {
 
     for (let i = 0; i < wind_cache.length; i++) {
         let segmentmax = wind_cache[i].windspeed_mps;
-        let starttime = wind_cache[i].timestamp;
+        let starttime = new Date(wind_cache[i].timestamp).getTime();
         let lasttime = starttime;
 
         for (let j = i + 1; j < wind_cache.length; j++) {
-            const delta = (wind_cache[j].timestamp - lasttime) / 1000;
+            const current = new Date(wind_cache[j].timestamp).getTime();
+            const delta = (current - lasttime) / 1000;
             if (delta > 2) break;
 
             segmentmax = Math.max(segmentmax, wind_cache[j].windspeed_mps);
-            lasttime = wind_cache[j].timestamp;
+            lasttime = current;
 
             const elapsed = (lasttime - starttime) / 1000;
             if (elapsed >= 3) maxgust = Math.max(maxgust, segmentmax);
