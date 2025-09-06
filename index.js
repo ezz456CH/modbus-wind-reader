@@ -1,19 +1,72 @@
 const ModbusRTU = require("modbus-serial");
 const client = new ModbusRTU();
-const colors = require("colors");
 const fs = require("fs");
 
-const { apipost } = require("./api");
+const { apipost, windyapi } = require("./api");
+const winddata = require("./winddata");
 
+require("colors");
 require("dotenv").config();
 
 const serialport = process.env.SERIALPORT || "/dev/ttyUSB0";
 const baudrate = Number(process.env.BAUDRATE) || 4800;
 const timeout = process.env.TIMEOUT || 2000;
-const interval = process.env.INTERVAL || 1500;
+const interval = process.env.INTERVAL || 1000;
 const reconnectinterval = process.env.RECONNECTINTERVAL || 5000;
 
 let isconnected = false;
+
+let wind_cache = [];
+
+let loggedonce = false;
+
+async function winddatacache(data) {
+    const now = Date.now();
+
+    wind_cache.push(data);
+
+    wind_cache = wind_cache.filter((d) => now - new Date(d.timestamp).getTime() <= 10 * 60 * 1000);
+
+    let sustained = null;
+    let gust = null;
+
+    if (wind_cache.length === 0) {
+        winddata.sustained = null;
+        winddata.gust = null;
+        return;
+    }
+
+    const sustained_speeds = wind_cache.map((d) => d.windspeed_mps);
+    sustained = sustained_speeds.reduce((a, b) => a + b, 0) / sustained_speeds.length;
+
+    let maxgust = 0;
+
+    for (let i = 0; i < wind_cache.length; i++) {
+        let segmentmax = wind_cache[i].windspeed_mps;
+        let starttime = wind_cache[i].timestamp;
+        let lasttime = starttime;
+
+        for (let j = i + 1; j < wind_cache.length; j++) {
+            const delta = (wind_cache[j].timestamp - lasttime) / 1000;
+            if (delta > 2) break;
+
+            segmentmax = Math.max(segmentmax, wind_cache[j].windspeed_mps);
+            lasttime = wind_cache[j].timestamp;
+
+            const elapsed = (lasttime - starttime) / 1000;
+            if (elapsed >= 3) maxgust = Math.max(maxgust, segmentmax);
+            if (elapsed > 20) break;
+        }
+    }
+
+    gust = maxgust;
+
+    sustained = parseFloat(sustained.toFixed(1));
+    gust = parseFloat(gust.toFixed(1));
+
+    winddata.sustained = sustained;
+    winddata.gust = gust;
+}
 
 async function connect() {
     try {
@@ -35,39 +88,32 @@ async function read() {
     if (!isconnected) return;
 
     try {
-        const data = await client.readHoldingRegisters(0, 10);
-        const windspeedmps = data.data[0] * 0.1;
-        const windspeedkmh = windspeedmps * 3.6;
-        const windspeedmph = windspeedmps * 2.23694;
+        const regs = await client.readHoldingRegisters(0, 10);
+        const windspeedmps = regs.data[0] * 0.1;
 
         const now = new Date().toISOString();
 
-        if (process.env.ENABLEWINDSPEEDTERMINALLOG !== "false") {
-            console.log(`[${now.red}] Latest Windspeed Reading: ${windspeedmps.toFixed(1).cyan} m/s (${windspeedkmh.toFixed(1).cyan} km/h, ${windspeedmph.toFixed(1).cyan} mph)`);
-        }
+        const data = {
+            timestamp: now,
+            windspeed_mps: windspeedmps,
+        };
+
+        await winddatacache(data);
 
         if (process.env.ENABLEWINDSPEEDLOGFILE !== "false") {
             const logfilename = `windspeed_${now.slice(0, 10)}.log`;
 
-            const logEntry = {
-                timestamp: now,
-                windspeed_mps: windspeedmps.toFixed(1),
-                windspeed_kmh: windspeedkmh.toFixed(1),
-                windspeed_mph: windspeedmph.toFixed(1),
-            };
-            fs.appendFile(logfilename, JSON.stringify(logEntry) + "\n", (err) => {
+            fs.appendFile(logfilename, JSON.stringify(data) + "\n", (err) => {
                 if (err) console.error(`[${now.red}] Failed to write log:`, err);
             });
         }
 
         if (process.env.ENABLEAPIPOST === "true") {
             const url = process.env.APIURL;
-            const data = {
-                timestamp: now,
-                windspeed_mps: windspeedmps.toFixed(1),
-            };
             await apipost(url, data);
         }
+
+        setTimeout(read, interval);
     } catch (err) {
         console.error(`[${new Date().toISOString().red}] Read error:`, err);
 
@@ -78,10 +124,33 @@ async function read() {
         } else {
             console.warn(`[${new Date().toISOString().red}] Read error:`, err);
         }
+
+        setTimeout(read, interval);
     }
+}
+
+function terminallog() {
+    const now = new Date();
+    if (!loggedonce) {
+        loggedonce = true;
+    } else {
+        console.log(`[${now.toISOString().red}] Last 10 Mins Sustained: ${winddata.sustained.toFixed(1).cyan} m/s | Last 10 Mins Gust: ${winddata.gust.toFixed(1).cyan} m/s`);
+    }
+
+    const minutes = now.getMinutes();
+    const seconds = now.getSeconds();
+    const next = ((10 - (minutes % 10)) * 60 - seconds) * 1000;
+
+    setTimeout(terminallog, next);
 }
 
 (async () => {
     await connect();
-    setInterval(read, interval);
+    await read();
+    if (process.env.ENABLEWINDSPEEDTERMINALLOG !== "false") {
+        terminallog();
+    }
+    if (process.env.ENABLEWINDYAPI !== "false") {
+        windyapi();
+    }
 })();
