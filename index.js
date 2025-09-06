@@ -96,6 +96,8 @@ async function read() {
         const data = {
             timestamp: now,
             windspeed_mps: windspeedmps,
+            last_10m_sustained: winddata.sustained,
+            last_10m_gust: winddata.gust,
         };
 
         await winddatacache(data);
