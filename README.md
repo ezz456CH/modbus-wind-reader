@@ -4,11 +4,12 @@ uh... just a simple node.js project to read windspeed from a modbus-rs485 anemom
 
 ## Dependencies
 
--   `axios`(for api :3)
+-   `axios`
 -   `colors`(for colored terminal :D)
 -   `dotenv`
 -   `modbus-serial`
 -   `serialport`
+-   `ws`
 
 install them with:
 
@@ -18,7 +19,7 @@ npm i
 
 ## Run
 
-you can run it however you like e.g.
+you can run it however you like :3 e.g.
 
 ```
 node index.js

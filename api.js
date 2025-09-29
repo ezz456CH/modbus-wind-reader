@@ -1,17 +1,5 @@
 const axios = require("axios");
-const winddata = require("./winddata");
-
-async function apipost(url, data) {
-    try {
-        await axios.post(url, data, {
-            headers: {
-                Authorization: `Bearer ${process.env.APITOKEN}`,
-            },
-        });
-    } catch (err) {
-        console.error(`[${new Date().toISOString().red}] Failed to post data to api:`, err);
-    }
-}
+const winddata = require("./data");
 
 let windyapionce = false;
 
@@ -38,4 +26,4 @@ async function windyapi() {
     }
 }
 
-module.exports = { apipost, windyapi };
+module.exports = { windyapi };

@@ -2,8 +2,9 @@ const ModbusRTU = require("modbus-serial");
 const client = new ModbusRTU();
 const fs = require("fs");
 
-const { apipost, windyapi } = require("./api");
-const winddata = require("./winddata");
+const { windyapi } = require("./api");
+const { ws } = require("./ws");
+const winddata = require("./data");
 
 require("colors");
 require("dotenv").config();
@@ -31,8 +32,8 @@ async function winddatacache(data) {
     let gust = null;
 
     if (wind_cache.length === 0) {
-        winddata.sustained = null;
-        winddata.gust = null;
+        winddata.last_10m_sustained = null;
+        winddata.last_10m_gust = null;
         return;
     }
 
@@ -65,8 +66,10 @@ async function winddatacache(data) {
     sustained = parseFloat(sustained.toFixed(1));
     gust = parseFloat(gust.toFixed(1));
 
-    winddata.sustained = sustained;
-    winddata.gust = gust;
+    winddata.windspeed_mps = data.windspeed_mps;
+    winddata.timestamp = data.timestamp;
+    winddata.last_10m_sustained = sustained;
+    winddata.last_10m_gust = gust;
 }
 
 async function connect() {
@@ -97,8 +100,8 @@ async function read() {
         const data = {
             timestamp: now,
             windspeed_mps: windspeedmps,
-            last_10m_sustained: winddata.sustained,
-            last_10m_gust: winddata.gust,
+            last_10m_sustained: winddata.last_10m_sustained,
+            last_10m_gust: winddata.last_10m_gust,
         };
 
         await winddatacache(data);
@@ -109,11 +112,6 @@ async function read() {
             fs.appendFile(logfilename, JSON.stringify(data) + "\n", (err) => {
                 if (err) console.error(`[${now.red}] Failed to write log:`, err);
             });
-        }
-
-        if (process.env.ENABLEAPIPOST === "true") {
-            const url = process.env.APIURL;
-            await apipost(url, data);
         }
 
         setTimeout(read, interval);
@@ -137,7 +135,7 @@ function terminallog() {
     if (!loggedonce) {
         loggedonce = true;
     } else {
-        console.log(`[${now.toISOString().red}] Last 10 Mins Sustained: ${winddata.sustained.toFixed(1).cyan} m/s | Last 10 Mins Gust: ${winddata.gust.toFixed(1).cyan} m/s`);
+        console.log(`[${now.toISOString().red}] Last 10 Mins Sustained: ${winddata.last_10m_sustained.toFixed(1).cyan} m/s | Last 10 Mins Gust: ${winddata.last_10m_gust.toFixed(1).cyan} m/s`);
     }
 
     const minutes = now.getMinutes();
@@ -155,5 +153,8 @@ function terminallog() {
     }
     if (process.env.ENABLEWINDYAPI !== "false") {
         windyapi();
+    }
+    if (process.env.ENABLEWS === "true") {
+        ws()
     }
 })();
