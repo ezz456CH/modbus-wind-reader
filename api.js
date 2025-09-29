@@ -9,7 +9,7 @@ async function windyapi() {
             windyapionce = true;
         } else if (winddata.last_10m_sustained !== null && winddata.last_10m_gust !== null) {
             const data = {
-                observations: [{ station: Number(process.env.WINDYSTATIONID), time: new Date().toISOString(), wind: winddata.sustained, gust: winddata.gust }],
+                observations: [{ station: Number(process.env.WINDYSTATIONID), time: new Date().toISOString(), wind: winddata.last_10m_sustained, gust: winddata.last_10m_gust }],
             };
             const url = `https://stations.windy.com/pws/update/${process.env.WINDYAPIKEY}`;
             await axios.post(url, data);

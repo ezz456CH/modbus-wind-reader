@@ -145,7 +145,7 @@ function terminallog() {
     const now = new Date();
     if (!loggedonce) {
         loggedonce = true;
-    } else {
+    } else if (winddata.last_10m_sustained !== null && winddata.last_10m_gust !== null) {
         console.log(`[${now.toISOString().red}] Last 10 Mins Sustained: ${winddata.last_10m_sustained.toFixed(1).cyan} m/s | Last 10 Mins Gust: ${winddata.last_10m_gust.toFixed(1).cyan} m/s`);
     }
 
