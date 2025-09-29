@@ -24,6 +24,7 @@ function ws() {
     }
 
     let socket;
+    let rejected = false;
 
     function connect() {
         socket = new WebSocket(url);
@@ -56,6 +57,16 @@ function ws() {
 
                 senddata();
             }
+
+            if (data.action === "rejected") {
+                rejected = true;
+                console.error(`[${new Date().toISOString().red}] Rejected by server: ${data.reason || "no reason"}`);
+                if (sendinterval) {
+                    clearTimeout(sendinterval);
+                    sendinterval = null;
+                }
+                socket.close();
+            }
         });
 
         socket.on("close", () => {
@@ -64,7 +75,9 @@ function ws() {
                 clearTimeout(sendinterval);
                 sendinterval = null;
             }
-            setTimeout(connect, 3000);
+            if (!rejected) {
+                setTimeout(connect, 3000);
+            }
         });
 
         socket.on("error", (err) => {
