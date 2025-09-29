@@ -28,10 +28,23 @@ async function winddatacache(data) {
 
     wind_cache = wind_cache.filter((d) => now - new Date(d.timestamp).getTime() <= 10 * 60 * 1000);
 
+    winddata.timestamp = data.timestamp;
+    winddata.windspeed_mps = data.windspeed_mps;
+
     let sustained = null;
     let gust = null;
 
     if (wind_cache.length === 0) {
+        winddata.last_10m_sustained = null;
+        winddata.last_10m_gust = null;
+        return;
+    }
+
+    const firsttime = new Date(wind_cache[0].timestamp).getTime();
+    const lasttime = new Date(wind_cache[wind_cache.length - 1].timestamp).getTime();
+    const span = (lasttime - firsttime) / 1000 / 60;
+
+    if (span < 9) {
         winddata.last_10m_sustained = null;
         winddata.last_10m_gust = null;
         return;
@@ -66,8 +79,6 @@ async function winddatacache(data) {
     sustained = parseFloat(sustained.toFixed(1));
     gust = parseFloat(gust.toFixed(1));
 
-    winddata.windspeed_mps = data.windspeed_mps;
-    winddata.timestamp = data.timestamp;
     winddata.last_10m_sustained = sustained;
     winddata.last_10m_gust = gust;
 }
@@ -155,6 +166,6 @@ function terminallog() {
         windyapi();
     }
     if (process.env.ENABLEWS === "true") {
-        ws()
+        ws();
     }
 })();

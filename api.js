@@ -7,7 +7,7 @@ async function windyapi() {
     try {
         if (!windyapionce) {
             windyapionce = true;
-        } else if (winddata.sustained !== null && winddata.gust !== null) {
+        } else if (winddata.last_10m_sustained !== null && winddata.last_10m_gust !== null) {
             const data = {
                 observations: [{ station: Number(process.env.WINDYSTATIONID), time: new Date().toISOString(), wind: winddata.sustained, gust: winddata.gust }],
             };
