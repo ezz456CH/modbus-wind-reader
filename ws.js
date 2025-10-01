@@ -38,6 +38,10 @@ function ws() {
         socket.on("message", (msg) => {
             const data = JSON.parse(msg.toString());
 
+            if (data.action === "ping") {
+                socket.send(JSON.stringify({ action: "pong" }));
+            }
+
             if (data.action === "identify") {
                 socket.send(JSON.stringify({ uuid, station: process.env.WSSTATIONNAME || "-" }));
             }
